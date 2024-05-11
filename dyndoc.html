@@ -1,0 +1,325 @@
+<head>
+  <link rel="stylesheet" type="text/css" href="stmarkdown.css">
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+</script>
+<script type="text/javascript" async
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_CHTML">
+</script>
+</head>
+<h1><a href="#data-simulation" id="data-simulation">Data Simulation</a></h1>
+<h3><a href="#jiahuan-helen-he" id="jiahuan-helen-he">Jiahuan Helen He</a></h3>
+<h1><a href="#hw7" id="hw7">HW7</a></h1>
+<p><strong>Background:</strong>* A <u>user</u> downloads and installs a <u>system</u> of program files, mostly ado-files, which form the foundation of most of the commands used in Stata Programming. Using those commands and additional syntax written out sequentially in a do-file, the user creates well-formed instruction to Stata called a do-file script. Once the user runs this script, results are generated and displayed in the results window, in a graph, or in a format (<code>.xlsx</code>, <code>.log</code>, <code>.dta</code>, <code>.docx</code>, <code>.md</code>, <code>LaTeX</code>, <code>.html</code>, etc). The <code>.html</code> file format is of specific interest since its the pathway to self-publication. To illustrate how this may be achieved in Stata, we hereby introduce the <code>dyndoc</code> command.</p>
+<p>We would like to investiagte the mortality by using the NHANES linked mortality data from 1999-2000 The potential confounders considered are age and sex Information of the linked mortality can be found here: <a href="https://ftp.cdc.gov/pub/HEALTH_STATISTICS/NCHS/datalinkage/linked_mortality/">https://ftp.cdc.gov/pub/HEALTH_STATISTICS/NCHS/datalinkage/linked_mortality/</a></p>
+<p><strong>Methods:</strong> This is a uses dataset from NAHNES 1999-2000. We use the non-parametric and parametric methods to estimate the survival</p>
+<pre><code>. cls 
+
+. //1. data
+. global repo &quot;https://raw.githubusercontent.com/Helen-Jiahuan-H/project_test1/main/&quot;
+
+. global nhanes &quot;https://wwwn.cdc.gov/Nchs/Nhanes/&quot;
+
+. 
+. //2. code
+. do ${repo}followup.do
+
+. save followup, replace 
+
+. import sasxport5 &quot;${nhanes}1999-2000/DEMO.XPT&quot;, clear
+
+. merge 1:1 seqn using followup, nogen
+
+. save survey_followup, replace 
+
+. 
+. //3. parameters
+. import sasxport5 &quot;${nhanes}1999-2000/HUQ.XPT&quot;, clear
+
+. tab huq010 
+
+. merge 1:1 seqn using survey_followup, nogen keep(matched)
+
+. rm followup.dta
+
+. rm survey_followup.dta
+
+. g years=permth_int/12
+
+. stset years, fail(mortstat)
+
+. replace huq010=. if huq010==9
+
+. label define huq 1 &quot;Excellent&quot; 2 &quot;Very Good&quot; 3 &quot;Good&quot; 4 &quot;Fair&quot; 5 &quot;Poor&quot;
+
+. label values huq010 huq 
+
+. levelsof huq010, local(numlevels)
+
+. local i=1
+
+. foreach l of numlist `numlevels' {
+
+. save week7, replace 
+
+. sts graph, ///
+&gt;     by(huq010) ///
+&gt;         fail ///
+&gt;         per(100) ///
+&gt;         ylab(0(20)80 , ///
+&gt;             format(%2.0f) ///
+&gt;         ) ///
+&gt;         xlab(0(5)20) ///
+&gt;         tmax(20) ///
+&gt;         ti(&quot;Self-Reported Health and Mortality&quot;) ///
+&gt;         legend( ///
+&gt;             order(5 4 3 2 1) ///
+&gt;                 lab(1 &quot;$legend1&quot;) ///
+&gt;                 lab(2 &quot;$legend2&quot;) ///
+&gt;                 lab(3 &quot;$legend3&quot;) ///
+&gt;                 lab(4 &quot;$legend4&quot;) ///
+&gt;                 lab(5 &quot;$legend5&quot;) ///
+&gt;                 ring(0) pos(11) ///
+&gt;         )
+
+. graph export nonpara.png, replace 
+
+. 
+</code></pre>
+<p><img src="Graph11.svg" ></p>
+<pre><code>. /* -- earlier code --*/
+. stcox i.huq010, basesurv(s0)
+
+. matrix define mat = r(table)
+
+. matrix list mat 
+
+. matrix mat = mat'
+
+. svmat mat
+
+. preserve 
+
+. keep mat*
+
+. drop if missing(mat1)
+
+. rename (mat1 mat2 mat3 mat4 mat5 mat6 mat7 mat8 mat9)(b se z p ll ul df crit eform)
+
+. g x=_n
+
+. replace b=log(b)
+
+. replace ll=log(ll)
+
+. replace ul=log(ul)
+
+. twoway (scatter b x) || ///
+&gt;        (rcap ll ul x, ///
+&gt;                yline(0, lcol(lime)) ///
+&gt;                    ylab( ///
+&gt;                        -2.08 &quot;0.125&quot; ///
+&gt;                            -1.39 &quot;0.25&quot; ///
+&gt;                            -.69 &quot;0.5&quot; ///
+&gt;                              0 &quot;1&quot;  ///
+&gt;                            .69 &quot;2&quot; ///
+&gt;                            1.39 &quot;4&quot; ///
+&gt;                            2.08 &quot;8&quot; ///
+&gt;                            2.78 &quot;16&quot;) ///
+&gt;                    legend(off)  ///
+&gt;                 xlab( ///
+&gt;            1 &quot;$legend1&quot; ///
+&gt;                    2 &quot;$legend2&quot; ///
+&gt;                    3 &quot;$legend3&quot; ///
+&gt;                    4 &quot;$legend4&quot; ///
+&gt;                    5 &quot;$legend5&quot;) ///
+&gt;            xti(&quot;Self-Reported Health&quot;) ///
+&gt;                    ) 
+
+. graph export semipara_unadj.png, replace 
+
+. graph save semipara_unadj.gph, replace 
+
+. restore 
+
+</code></pre>
+<p><img src="Graph12.svg" ></p>
+<pre><code>. hist ridageyr 
+
+. graph export nonpara.png, replace 
+
+. //replace ridageyr=ridageyr/10
+. capture drop s0 
+
+. stcox i.huq010 ridageyr riagendr, basesurv(s0)
+
+. return list
+
+. matrix define mat_adj=r(table)
+
+. matrix define mat_adj=mat_adj'
+
+. matrix list mat_adj
+
+. svmat mat_adj
+
+. keep mat_adj*
+
+. drop if missing(mat_adj1)
+
+. rename (mat_adj1 mat_adj2 mat_adj3 mat_adj4 mat_adj5 mat_adj6 mat_adj7 mat_adj8 mat_adj9)(b se z 
+&gt; p ll ul df crit eform)
+
+. g x=_n
+
+. replace b=log(b)
+
+. replace ll=log(ll)
+
+. replace ul=log(ul)
+
+. twoway (scatter b x if inrange(x,1,5)) || ///
+&gt;        (rcap ll ul x if inrange(x,1,5), ///
+&gt;                yline(0, lcol(lime)) ///
+&gt;                    ylab( ///
+&gt;                        -2.08 &quot;0.125&quot; ///
+&gt;                            -1.39 &quot;0.25&quot; ///
+&gt;                            -.69 &quot;0.5&quot; ///
+&gt;                              0 &quot;1&quot;  ///
+&gt;                            .69 &quot;2&quot; ///
+&gt;                            1.39 &quot;4&quot; ///
+&gt;                            2.08 &quot;8&quot; ///
+&gt;                            2.78 &quot;16&quot;) ///
+&gt;                    legend(off)  ///
+&gt;                 xlab( ///
+&gt;            1 &quot;$legend1&quot; ///
+&gt;                    2 &quot;$legend2&quot; ///
+&gt;                    3 &quot;$legend3&quot; ///
+&gt;                    4 &quot;$legend4&quot; ///
+&gt;                    5 &quot;$legend5&quot;) ///
+&gt;            xti(&quot;Self-Reported Health&quot;) ///
+&gt;                    ) 
+
+. graph export semipara_adj.png, replace 
+
+. graph save semipara_adj.gph, replace 
+
+</code></pre>
+<p><img src="Graph13.svg" ></p>
+<pre><code>. graph combine semipara_unadj.gph semipara_adj.gph, ///
+&gt;     ycommon ti(&quot;Hazard Ratio, 95%CI&quot;) 
+
+. graph export unadj_adj.png, replace 
+
+</code></pre>
+<p><img src="Graph14.svg" ></p>
+<pre><code>. cls 
+
+. use week7, clear
+
+. replace riagendr=riagendr-1
+
+. stcox i.huq010 ridageyr riagendr, basesurv(s0) //age and gender are considered as confounders
+
+. keep s0 _t _t0 _st _d 
+
+. save s0, replace 
+
+. ereturn list 
+
+. matrix beta = e(b)
+
+. matrix vcov = e(V)
+
+. matrix SV = ( ///
+&gt;     0, ///
+&gt;         1, ///
+&gt;         0, ///
+&gt;         0, ///
+&gt;         0, ///
+&gt;         40, ///
+&gt;         1 ///
+&gt; )
+
+. matrix SV_ref = ( ///
+&gt;     0, ///
+&gt;         1, ///
+&gt;         0, ///
+&gt;         0, ///
+&gt;         0, ///
+&gt;         60, ///
+&gt;         1 ///
+&gt; )
+
+. //absolute risk
+. matrix risk_score = SV * beta'
+
+. matrix list risk_score
+
+. di exp(risk_score[1,1])
+
+. matrix var_prediction = SV * vcov * vcov'
+
+. matrix se_prediction = sqrt(var_prediction[1,1])
+
+. 
+. matrix risk_score_ref = SV_ref * beta'
+
+. matrix list risk_score_ref
+
+. di exp(risk_score_ref[1,1])
+
+. matrix var_prediction_ref = SV_ref * vcov * vcov'
+
+. matrix se_prediction_ref = sqrt(var_prediction_ref[1,1])
+
+. 
+. local hr = exp(risk_score_ref[1,1])/exp(risk_score[1,1])
+
+. di `hr'
+
+. 
+. //di &quot;We conclude that `exp(risk_score[1,1])'&quot;
+. 
+. //
+. g f0 = (1 - s0) * 100 
+
+. g f1_ = f0 * exp(risk_score[1,1])
+
+. line f1 _t , ///  
+&gt;     sort connect(step step) ///
+&gt;         legend(ring(0)) ///
+&gt;     ylab(0(5)20) xlab(0(5)20) ///
+&gt;     yti(&quot;&quot;) ///
+&gt;     ti(&quot;Scenario, %&quot;, pos(11)) ///
+&gt;     xti(&quot;Years&quot;) ///
+&gt;     note(&quot;40yo male who self-describes as being in good health&quot; ///
+&gt;                   ,size(1.5) ///
+&gt;                 )
+
+. graph export scenario.png, replace 
+
+</code></pre>
+<p><img src="Graph15.svg" ></p>
+<pre><code>. display c(N) 
+9965
+
+. display c(k)  
+7
+
+. list in 1/5 
+
+     +--------------------------------------------------------------+
+     | _st   _d          _t   _t0          s0         f0        f1_ |
+     |--------------------------------------------------------------|
+  1. |   0    .           .     .           .          .          . |
+  2. |   1    1       14.75     0   .99855452   .1445476   3.598538 |
+  3. |   0    .           .     .           .          .          . |
+  4. |   0    .           .     .           .          .          . |
+  5. |   1    0   20.333334     0   .99739294   .2607062   6.490329 |
+     +--------------------------------------------------------------+
+
+</code></pre>
+<p><strong>Results:</strong> The results are shown as figures The scenario is a specific case, so it should be interpreted with cautions (i.e., it may not be generalizable to other situations)</p>
+<p><strong>Future Investigation:</strong> Other confounders besides age and sex can be considered, such as race</p>
+<p><strong>Other Notes:</strong> In walking you through syntax, do-file creation, queued commands, generated results, through to embedding neatly formatted output in .html, we believe you now have a sense of what that Stata might offer you. These ideas can be generalized to embedding results in .xlsx, .log, .dta, .docx, etc.</p>
