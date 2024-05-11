@@ -94,4 +94,6 @@ This project will focus on using public data to explore the significance of “s
     codebook huq010
     ```
 
-* In week 7, we will include results and graphics from the analysis 
+* In week 7, we will include results and graphics from the analysis
+* We have utilized both non-parametric and parametric methods to study the mortality rate by using linked mortality data from NHANES 1999-2000
+* click [here](dyndoc.html) to view nonparametric and semiparametric risk estimates from Stata
